@@ -1,0 +1,13 @@
+[package]
+name = "crypto-trading-engine"
+version = "0.1.0"
+edition = "2024"
+authors = ["Didy <9417799+didy-kpn@users.noreply.github.com>"]
+description = "A"
+license = "MIT"
+
+[dependencies]
+task-orchestrator = { git = "https://github.com/didy-kpn/task-orchestrator.git" }
+tokio = { version = "1.43.0", features = ["full"] }
+async-trait = "0.1.85"
+thiserror = "2.0.11"
