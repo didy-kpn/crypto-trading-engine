@@ -3,7 +3,7 @@ name = "crypto-trading-engine"
 version = "0.1.0"
 edition = "2024"
 authors = ["Didy <9417799+didy-kpn@users.noreply.github.com>"]
-description = "A"
+description = "A modular and extensible trading engine for cryptocurrency markets, built with Rust and Tokio. Features pluggable architecture, asynchronous task execution, event-driven design, and component-based architecture with connectors, aggregators, strategies, and executors."
 license = "MIT"
 
 [dependencies]
