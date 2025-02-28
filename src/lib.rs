@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use task_orchestrator::{
-    BackgroundTask, EventBus, EventDrivenTask, EventType, Scheduler, SchedulerError,
+    BackgroundTask, EventBus, EventTask, EventType, Scheduler, SchedulerError, TaskId,
 };
+use tokio::sync::Mutex;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TradingEngineError {
@@ -18,16 +21,16 @@ pub trait Connector: BackgroundTask {}
 pub trait Aggregator: BackgroundTask {}
 
 #[async_trait]
-pub trait Strategy<E: EventType + 'static>: EventDrivenTask<E> {}
+pub trait Strategy<E: EventType + 'static>: EventTask<E> {}
 
 #[async_trait]
-pub trait Executor<E: EventType + 'static>: EventDrivenTask<E> {}
+pub trait Executor<E: EventType + 'static>: EventTask<E> {}
 
 pub struct TradingEngineBuilder<E> {
-    connectors: Vec<Box<dyn Connector>>,
-    aggregator: Option<Box<dyn Aggregator>>,
-    strategies: Vec<Box<dyn Strategy<E>>>,
-    executors: Vec<Box<dyn Executor<E>>>,
+    connectors: Vec<TaskId>,
+    aggregator: Option<TaskId>,
+    strategies: Vec<TaskId>,
+    executors: Vec<TaskId>,
     scheduler: Scheduler<E>,
 }
 
@@ -42,31 +45,31 @@ impl<E: EventType + 'static + ToString> TradingEngineBuilder<E> {
         }
     }
 
-    pub fn with_connector(mut self, connector: Box<dyn Connector>) -> Self {
-        self.scheduler
-            .register_background_task(connector.clone_box());
-        self.connectors.push(connector);
+    pub fn with_connector<T: Connector + 'static>(mut self, connector: Arc<Mutex<T>>) -> Self {
+        let background_task: Arc<Mutex<dyn BackgroundTask>> = connector;
+        let id = self.scheduler.register_background_task(background_task);
+        self.connectors.push(id);
         self
     }
 
-    pub fn with_aggregator(mut self, aggregator: Box<dyn Aggregator>) -> Self {
-        self.scheduler
-            .register_background_task(aggregator.clone_box());
-        self.aggregator = Some(aggregator);
+    pub fn with_aggregator<T: Aggregator + 'static>(mut self, aggregator: Arc<Mutex<T>>) -> Self {
+        let background_task: Arc<Mutex<dyn BackgroundTask>> = aggregator;
+        let id = self.scheduler.register_background_task(background_task);
+        self.aggregator = Some(id);
         self
     }
 
-    pub fn with_strategy(mut self, strategy: Box<dyn Strategy<E>>) -> Self {
-        self.scheduler
-            .register_event_driven_task(strategy.clone_box());
-        self.strategies.push(strategy);
+    pub fn with_strategy<T: Strategy<E> + 'static>(mut self, strategy: Arc<Mutex<T>>) -> Self {
+        let event_task: Arc<Mutex<dyn EventTask<E>>> = strategy;
+        let id = self.scheduler.register_event_task(event_task);
+        self.strategies.push(id);
         self
     }
 
-    pub fn with_executor(mut self, executor: Box<dyn Executor<E>>) -> Self {
-        self.scheduler
-            .register_event_driven_task(executor.clone_box());
-        self.executors.push(executor);
+    pub fn with_executor<T: Executor<E> + 'static>(mut self, executor: Arc<Mutex<T>>) -> Self {
+        let event_task: Arc<Mutex<dyn EventTask<E>>> = executor;
+        let id = self.scheduler.register_event_task(event_task);
+        self.executors.push(id);
         self
     }
 
@@ -100,10 +103,10 @@ impl<E: EventType + 'static + ToString> TradingEngineBuilder<E> {
 }
 
 pub struct TradingEngine<E> {
-    connectors: Vec<Box<dyn Connector>>,
-    aggregator: Box<dyn Aggregator>,
-    strategies: Vec<Box<dyn Strategy<E>>>,
-    executors: Vec<Box<dyn Executor<E>>>,
+    connectors: Vec<TaskId>,
+    aggregator: TaskId,
+    strategies: Vec<TaskId>,
+    executors: Vec<TaskId>,
     scheduler: Scheduler<E>,
 }
 
